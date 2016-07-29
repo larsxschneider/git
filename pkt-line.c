@@ -91,6 +91,12 @@ void packet_flush(int fd)
 	write_or_die(fd, "0000", 4);
 }
 
+int packet_flush_gentle(int fd)
+{
+	packet_trace("0000", 4, 1);
+	return !write_or_whine_pipe(fd, "0000", 4, "flush packet");
+}
+
 void packet_buf_flush(struct strbuf *buf)
 {
 	packet_trace("0000", 4, 1);
@@ -98,9 +104,17 @@ void packet_buf_flush(struct strbuf *buf)
 }
 
 #define hex(a) (hexchar[(a) & 15])
-static void format_packet(struct strbuf *out, const char *fmt, va_list args)
+static void set_packet_header(char *buf, const int size)
 {
 	static char hexchar[] = "0123456789abcdef";
+	buf[0] = hex(size >> 12);
+	buf[1] = hex(size >> 8);
+	buf[2] = hex(size >> 4);
+	buf[3] = hex(size);
+}
+
+static void format_packet(struct strbuf *out, const char *fmt, va_list args)
+{
 	size_t orig_len, n;
 
 	orig_len = out->len;
@@ -111,11 +125,7 @@ static void format_packet(struct strbuf *out, const char *fmt, va_list args)
 	if (n > LARGE_PACKET_MAX)
 		die("protocol error: impossibly long line");
 
-	out->buf[orig_len + 0] = hex(n >> 12);
-	out->buf[orig_len + 1] = hex(n >> 8);
-	out->buf[orig_len + 2] = hex(n >> 4);
-	out->buf[orig_len + 3] = hex(n);
-	packet_trace(out->buf + orig_len + 4, n - 4, 1);
+	set_packet_header(&out->buf[orig_len], n);
 }
 
 void packet_write(int fd, const char *fmt, ...)
@@ -127,7 +137,38 @@ void packet_write(int fd, const char *fmt, ...)
 	va_start(args, fmt);
 	format_packet(&buf, fmt, args);
 	va_end(args);
+	packet_trace(buf.buf + 4, buf.len - 4, 1);
 	write_or_die(fd, buf.buf, buf.len);
+}
+
+int direct_packet_write(int fd, char *buf, size_t size, int gentle)
+{
+	int ret = 0;
+	packet_trace(buf + 4, size - 4, 1);
+	set_packet_header(buf, size);
+	if (gentle)
+		ret = !write_or_whine_pipe(fd, buf, size, "pkt-line");
+	else
+		write_or_die(fd, buf, size);
+	return ret;
+}
+
+int direct_packet_write_data(int fd, const char *buf, size_t size, int gentle)
+{
+	int ret = 0;
+	char hdr[4];
+	set_packet_header(hdr, sizeof(hdr) + size);
+	packet_trace(buf, size, 1);
+	if (gentle) {
+		ret = (
+			!write_or_whine_pipe(fd, hdr, sizeof(hdr), "pkt-line header") ||
+			!write_or_whine_pipe(fd, buf, size, "pkt-line data")
+		);
+	} else {
+		write_or_die(fd, hdr, sizeof(hdr));
+		write_or_die(fd, buf, size);
+	}
+	return ret;
 }
 
 void packet_buf_write(struct strbuf *buf, const char *fmt, ...)
