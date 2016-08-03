@@ -91,16 +91,31 @@ void packet_flush(int fd)
 	write_or_die(fd, "0000", 4);
 }
 
+int packet_flush_gently(int fd)
+{
+	packet_trace("0000", 4, 1);
+	return !write_or_whine_pipe(fd, "0000", 4, "flush packet");
+}
+
 void packet_buf_flush(struct strbuf *buf)
 {
 	packet_trace("0000", 4, 1);
 	strbuf_add(buf, "0000", 4);
 }
 
-#define hex(a) (hexchar[(a) & 15])
-static void format_packet(struct strbuf *out, const char *fmt, va_list args)
+static void set_packet_header(char *buf, const int size)
 {
 	static char hexchar[] = "0123456789abcdef";
+	#define hex(a) (hexchar[(a) & 15])
+	buf[0] = hex(size >> 12);
+	buf[1] = hex(size >> 8);
+	buf[2] = hex(size >> 4);
+	buf[3] = hex(size);
+	#undef hex
+}
+
+static void format_packet(struct strbuf *out, const char *fmt, va_list args)
+{
 	size_t orig_len, n;
 
 	orig_len = out->len;
@@ -111,11 +126,7 @@ static void format_packet(struct strbuf *out, const char *fmt, va_list args)
 	if (n > LARGE_PACKET_MAX)
 		die("protocol error: impossibly long line");
 
-	out->buf[orig_len + 0] = hex(n >> 12);
-	out->buf[orig_len + 1] = hex(n >> 8);
-	out->buf[orig_len + 2] = hex(n >> 4);
-	out->buf[orig_len + 3] = hex(n);
-	packet_trace(out->buf + orig_len + 4, n - 4, 1);
+	set_packet_header(&out->buf[orig_len], n);
 }
 
 void packet_write(int fd, const char *fmt, ...)
@@ -127,7 +138,50 @@ void packet_write(int fd, const char *fmt, ...)
 	va_start(args, fmt);
 	format_packet(&buf, fmt, args);
 	va_end(args);
+	packet_trace(buf.buf + 4, buf.len - 4, 1);
 	write_or_die(fd, buf.buf, buf.len);
+}
+
+int direct_packet_write(int fd, char *buf, size_t size, int gentle)
+{
+	int ret = 0;
+	if (size > LARGE_PACKET_MAX) {
+		if (gentle)
+			return 0;
+		else
+			die("protocol error: impossibly long line");
+	}
+	packet_trace(buf + 4, size - 4, 1);
+	set_packet_header(buf, size);
+	if (gentle)
+		ret = !write_or_whine_pipe(fd, buf, size, "pkt-line");
+	else
+		write_or_die(fd, buf, size);
+	return ret;
+}
+
+int direct_packet_write_data(int fd, const char *data, size_t size, int gentle)
+{
+	int ret = 0;
+	char hdr[PKTLINE_HEADER_LEN];
+	if (size > PKTLINE_DATA_MAXLEN) {
+		if (gentle)
+			return 0;
+		else
+			die("protocol error: impossibly long line");
+	}
+	set_packet_header(hdr, PKTLINE_HEADER_LEN + size);
+	packet_trace(data, size, 1);
+	if (gentle) {
+		ret = (
+			!write_or_whine_pipe(fd, hdr, PKTLINE_HEADER_LEN, "pkt-line header") ||
+			!write_or_whine_pipe(fd, data, size, "pkt-line data")
+		);
+	} else {
+		write_or_die(fd, hdr, PKTLINE_HEADER_LEN);
+		write_or_die(fd, data, size);
+	}
+	return ret;
 }
 
 void packet_buf_write(struct strbuf *buf, const char *fmt, ...)
@@ -138,6 +192,44 @@ void packet_buf_write(struct strbuf *buf, const char *fmt, ...)
 	format_packet(buf, fmt, args);
 	va_end(args);
 }
+
+int packet_write_stream_with_flush_from_fd(const int fd_in, const int fd_out)
+{
+	int did_fail = 0;
+	ssize_t bytes_to_write;
+	while (!did_fail) {
+		bytes_to_write = xread(fd_in, PKTLINE_DATA_START(packet_buffer), PKTLINE_DATA_MAXLEN);
+		if (bytes_to_write < 0)
+			return COPY_READ_ERROR;
+		if (bytes_to_write == 0)
+			break;
+		did_fail |= direct_packet_write(fd_out, packet_buffer, PKTLINE_HEADER_LEN + bytes_to_write, 1);
+	}
+	if (!did_fail)
+		did_fail = packet_flush_gently(fd_out);
+	return (did_fail ? COPY_WRITE_ERROR : 0);
+}
+
+int packet_write_stream_with_flush_from_buf(const char *src_in, size_t len, int fd_out)
+{
+	int did_fail = 0;
+	size_t bytes_written = 0;
+	size_t bytes_to_write;
+	while (!did_fail) {
+		if ((len - bytes_written) > PKTLINE_DATA_MAXLEN)
+			bytes_to_write = PKTLINE_DATA_MAXLEN;
+		else
+			bytes_to_write = len - bytes_written;
+		if (bytes_to_write == 0)
+			break;
+		did_fail |= direct_packet_write_data(fd_out, src_in + bytes_written, bytes_to_write, 1);
+		bytes_written += bytes_to_write;
+	}
+	if (!did_fail)
+		did_fail = packet_flush_gently(fd_out);
+	return did_fail;
+}
+
 
 static int get_packet_data(int fd, char **src_buf, size_t *src_size,
 			   void *dst, unsigned size, int options)
@@ -247,4 +339,54 @@ char *packet_read_line(int fd, int *len_p)
 char *packet_read_line_buf(char **src, size_t *src_len, int *dst_len)
 {
 	return packet_read_line_generic(-1, src, src_len, dst_len);
+}
+
+ssize_t packet_read_till_flush(int fd_in, struct strbuf *sb_out)
+{
+	int len, ret;
+	int options = PACKET_READ_GENTLE_ON_EOF;
+	char linelen[4];
+
+	size_t oldlen = sb_out->len;
+	size_t oldalloc = sb_out->alloc;
+
+	for (;;) {
+		// Read packet header
+		ret = get_packet_data(fd_in, NULL, NULL, linelen, 4, options);
+		if (ret < 0)
+			goto done;
+		len = packet_length(linelen);
+		if (len < 0)
+			die("protocol error: bad line length character: %.4s", linelen);
+		if (!len) {
+			// Found a flush packet - Done!
+			packet_trace("0000", 4, 0);
+			break;
+		}
+		len -= 4;
+
+		// Read packet content
+		strbuf_grow(sb_out, len);
+		ret = get_packet_data(fd_in, NULL, NULL, sb_out->buf + sb_out->len, len, options);
+		if (ret < 0)
+			goto done;
+
+		if (ret != len) {
+			error("protocol error: incomplete read (expected %d, got %d)", len, ret);
+			goto done;
+		}
+
+		packet_trace(sb_out->buf + sb_out->len, len, 0);
+		sb_out->len += len;
+	}
+
+done:
+	if (ret < 0) {
+		if (oldalloc == 0)
+			strbuf_release(sb_out);
+		else
+			strbuf_setlen(sb_out, oldlen);
+		return ret;  // unexpected EOF
+	}
+	return sb_out->len - oldlen;
 }

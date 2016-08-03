@@ -23,6 +23,11 @@ void packet_flush(int fd);
 void packet_write(int fd, const char *fmt, ...) __attribute__((format (printf, 2, 3)));
 void packet_buf_flush(struct strbuf *buf);
 void packet_buf_write(struct strbuf *buf, const char *fmt, ...) __attribute__((format (printf, 2, 3)));
+int packet_flush_gently(int fd);
+int direct_packet_write(int fd, char *buf, size_t size, int gentle);
+int direct_packet_write_data(int fd, const char *data, size_t size, int gentle);
+int packet_write_stream_with_flush_from_fd(const int fd_in, const int fd_out);
+int packet_write_stream_with_flush_from_buf(const char *src_in, size_t len, int fd_out);
 
 /*
  * Read a packetized line into the buffer, which must be at least size bytes
@@ -75,8 +80,16 @@ char *packet_read_line(int fd, int *size);
  */
 char *packet_read_line_buf(char **src_buf, size_t *src_len, int *size);
 
+/*
+ * Reads a stream of variable sized packets until a flush packet is detected.
+ */
+ssize_t packet_read_till_flush(int fd_in, struct strbuf *sb_out);
+
 #define DEFAULT_PACKET_MAX 1000
 #define LARGE_PACKET_MAX 65520
+#define PKTLINE_HEADER_LEN 4
+#define PKTLINE_DATA_START(pkt) ((pkt) + PKTLINE_HEADER_LEN)
+#define PKTLINE_DATA_MAXLEN (LARGE_PACKET_MAX - PKTLINE_HEADER_LEN)
 extern char packet_buffer[LARGE_PACKET_MAX];
 
 #endif
