@@ -136,6 +136,86 @@ static int streaming_write_entry(const struct cache_entry *ce, char *path,
 	return result;
 }
 
+void enable_delayed_checkout(struct checkout *state)
+{
+	if (!state->delayed_checkout) {
+		state->delayed_checkout = xmalloc(sizeof(*state->delayed_checkout));
+		state->delayed_checkout->entries_nr = 0;
+		state->delayed_checkout->entries_alloc = 0;
+		state->delayed_checkout->delay_id = -1;
+		state->delayed_checkout->state = CE_DELAY_AVAILABLE;
+		ALLOC_ARRAY(state->delayed_checkout->entries, 0);
+		string_list_init(&state->delayed_checkout->filters, 0);
+	}
+}
+
+int finish_delayed_checkout(struct checkout *state)
+{
+	int errs = 0;
+	struct string_list_item *filter;
+	struct delayed_checkout *dco = state->delayed_checkout;
+
+	if (!state->delayed_checkout) {
+		return errs;
+	}
+
+	while (dco->entries_nr > 0 && dco->filters.nr > 0) {
+		for_each_string_list_item(filter, &dco->filters) {
+			int i;
+			int delay_ids_nr;
+			unsigned long *delay_ids;
+			ALLOC_ARRAY(delay_ids, 0);
+			if (!async_query_available_blobs(
+				filter->string, &delay_ids, &delay_ids_nr)) {
+				/* Filter reported an error */
+				errs = 1;
+				filter->string = "";
+				free(delay_ids);
+				continue;
+			}
+			if (delay_ids_nr <= 0) {
+				/* Filter responded with no entries. That means
+				   the filter is done and we can remove the
+				   filter from the list
+				   (see "string_list_remove_empty_items" call
+				   below).
+				*/
+				filter->string = "";
+				free(delay_ids);
+				continue;
+			}
+			for (i = 0; i < delay_ids_nr; i++) {
+				struct cache_entry* ce;
+				unsigned long delay_id = delay_ids[i];
+				assert(delay_id >= 0 && delay_id < dco->entries_nr);
+				ce = dco->entries[delay_id];
+				dco->entries[delay_id] = NULL;
+				dco->delay_id = delay_id;
+				dco->state = CE_DELAY_RETRY;
+				/* Shrink entries array as much as possible */
+				while (
+					dco->entries_nr > 0 &&
+					delay_id == dco->entries_nr - 1 &&
+					!dco->entries[i]
+				) {
+					delay_id--;
+					dco->entries_nr--;
+				}
+				errs |= (ce ? checkout_entry(ce, state, NULL) : 1);
+			}
+			free(delay_ids);
+		}
+		string_list_remove_empty_items(&dco->filters, 0);
+	}
+
+	string_list_clear(&dco->filters, 0);
+	free(dco->entries);
+	free(dco);
+	state->delayed_checkout = NULL;
+
+	return errs;
+}
+
 static int write_entry(struct cache_entry *ce,
 		       char *path, const struct checkout *state, int to_tempfile)
 {
@@ -177,11 +257,45 @@ static int write_entry(struct cache_entry *ce,
 		/*
 		 * Convert from git internal format to working tree format
 		 */
-		if (ce_mode_s_ifmt == S_IFREG &&
-		    convert_to_working_tree(ce->name, new, size, &buf)) {
-			free(new);
-			new = strbuf_detach(&buf, &newsize);
-			size = newsize;
+		if (ce_mode_s_ifmt == S_IFREG) {
+			struct delayed_checkout *dco = state->delayed_checkout;
+			if (dco && dco->state != CE_DELAY_DISABLED) {
+				switch (dco->state) {
+				case CE_DELAY_AVAILABLE:
+					dco->delay_id = dco->entries_nr; break;
+				case CE_DELAY_RETRY:
+					new = NULL; size = 0; break;
+				default: break;
+				}
+				assert(dco->delay_id >= 0);
+				ret = async_convert_to_working_tree(
+					ce->name, new, size, &buf, dco);
+				if (ret && dco->state == CE_DELAY_APPLIED) {
+					assert(dco->delay_id == dco->entries_nr);
+					free(new);
+					dco->entries_nr++;
+					ALLOC_GROW(
+						dco->entries, dco->entries_nr,
+						dco->entries_alloc);
+					dco->entries[dco->delay_id] = ce;
+					dco->state = CE_DELAY_AVAILABLE;
+					dco->delay_id = -1;
+					goto finish;
+				}
+			} else
+				ret = convert_to_working_tree(
+					ce->name, new, size, &buf);
+
+			if (ret) {
+				free(new);
+				new = strbuf_detach(&buf, &newsize);
+				size = newsize;
+			}
+			/*
+			 * No "else" here as errors from convert are OK at this
+			 * point. If the error would have been fatal (e.g.
+			 * filter is required), then we would have died already.
+			 */
 		}
 
 		fd = open_output_fd(path, ce, to_tempfile);

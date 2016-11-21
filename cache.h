@@ -1421,19 +1421,54 @@ const char *show_ident_date(const struct ident_split *id,
  */
 extern int ident_cmp(const struct ident_split *, const struct ident_split *);
 
+enum ce_delay_state {
+	CE_DELAY_DISABLED = 0,
+	CE_DELAY_AVAILABLE = 1,
+	CE_DELAY_APPLIED = 2,
+	CE_DELAY_RETRY = 3
+};
+
+struct delayed_checkout {
+	enum ce_delay_state state;
+	/* The value of "delay_id" has different meaning depending on the
+	 * "state" variable:
+	 *   - CE_DELAY_DISABLED  => "delay_id" not used.
+	 *   - CE_DELAY_AVAILABLE => "delay_id" is available to be presented
+	 *                           to the filter in case the filter wants to
+	 *                           delay the response of a blob.
+	 *   - CE_DELAY_APPLIED   => "delay_id" was presented to and applied by
+	 *                           the filter for a blob. The corresponding
+	 *                           cache entry in stored in the "entries"
+	 *                           array under the index "delay_id".
+	 *   - CE_DELAY_RETRY     => Git requests a blob from the filter that
+	 *                           was previously delayed using the "delay_id".
+	 */
+	int delay_id;
+	/* List of filter drivers that have delayed blobs. */
+	struct string_list filters;
+	/* Array of cache entries that have been delayed. */
+	struct cache_entry **entries;
+	int entries_nr;
+	int entries_alloc;
+};
+
 struct checkout {
 	struct index_state *istate;
 	const char *base_dir;
+	struct delayed_checkout *delayed_checkout;
 	int base_dir_len;
 	unsigned force:1,
 		 quiet:1,
 		 not_new:1,
 		 refresh_cache:1;
 };
-#define CHECKOUT_INIT { NULL, "" }
+#define CHECKOUT_INIT { NULL, "", NULL }
+
 
 #define TEMPORARY_FILENAME_LENGTH 25
 extern int checkout_entry(struct cache_entry *ce, const struct checkout *state, char *topath);
+extern void enable_delayed_checkout(struct checkout *state);
+extern int finish_delayed_checkout(struct checkout *state);
 
 struct cache_def {
 	struct strbuf path;
