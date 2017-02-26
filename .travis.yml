@@ -51,6 +51,17 @@ matrix:
       before_script:
       script: ci/test-documentation.sh
       after_failure:
+    - env: Static Analyzer
+      os: linux
+      dist: trusty
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+            - llvm-toolchain-trusty
+          packages:
+            - clang-5.0
+      script: scan-build-5.0 -analyze-headers --force-analyze-debug-code --keep-going --status-bugs make --jobs=2
 
 before_install:
   - >
