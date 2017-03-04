@@ -9,6 +9,8 @@ test_expect_success 'setup (import history)' '
 '
 
 test_expect_success 'range_set_union' '
+	which git &&
+	git --version &&
 	test_seq 500 > c.c &&
 	git add c.c &&
 	git commit -m "many lines" &&
