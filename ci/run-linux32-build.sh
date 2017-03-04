@@ -19,5 +19,6 @@ sudo docker run --interactive --volume "${PWD}:/usr/src/git" "$CONTAINER" \
     cd /usr/src/git &&
     make --jobs=2 &&
     cd t &&
+    export MALLOC_CHECK_=2 &&
     timeout 60 ./t4211-line-log.sh -v -x
 "'
