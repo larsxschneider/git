@@ -17,15 +17,7 @@ sudo docker run --interactive --volume "${PWD}:/usr/src/git" "$CONTAINER" \
 
     : build and test &&
     cd /usr/src/git &&
-    export DEFAULT_TEST_TARGET='$DEFAULT_TEST_TARGET' &&
-    export GIT_PROVE_OPTS=\"'"$GIT_PROVE_OPTS"'\" &&
-    export GIT_TEST_OPTS=\"'"$GIT_TEST_OPTS"'\" &&
-    export GIT_TEST_CLONE_2GB='$GIT_TEST_CLONE_2GB' &&
     make --jobs=2 &&
-    make --quiet test || (
-
-    : make test-results readable to non-root user on TravisCI &&
-    test '$TRAVIS' &&
-    find t/test-results/ -type f -exec chmod o+r {} \; &&
-    false )
+    cd t &&
+    timeout 60 ./t4211-line-log.sh -v -x
 "'
