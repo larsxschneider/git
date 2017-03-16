@@ -5,14 +5,9 @@
 * https://opensource.org/licenses/MIT
 ***/
 
-#include <string.h>
-#include <memory.h>
-#include <stdio.h>
-#include <stdlib.h>
-
-#include "sha1.h"
-#include "ubc_check.h"
-
+#include "git-compat-util.h"
+#include "sha1dc/sha1.h"
+#include "sha1dc/ubc_check.h"
 
 /*
    Because Little-Endian architectures are most common,
@@ -1789,4 +1784,26 @@ int SHA1DCFinal(unsigned char output[20], SHA1_CTX *ctx)
 	output[18] = (unsigned char)(ctx->ihv[4] >> 8);
 	output[19] = (unsigned char)(ctx->ihv[4]);
 	return ctx->found_collision;
+}
+
+static const char collision_message[] =
+"The SHA1 computation detected evidence of a collision attack;\n"
+"refusing to process the contents.";
+
+void git_SHA1DCFinal(unsigned char hash[20], SHA1_CTX *ctx)
+{
+	if (SHA1DCFinal(hash, ctx))
+		die(collision_message);
+}
+
+void git_SHA1DCUpdate(SHA1_CTX *ctx, const void *vdata, unsigned long len)
+{
+	const char *data = vdata;
+	/* We expect an unsigned long, but sha1dc only takes an int */
+	while (len > INT_MAX) {
+		SHA1DCUpdate(ctx, data, INT_MAX);
+		data += INT_MAX;
+		len -= INT_MAX;
+	}
+	SHA1DCUpdate(ctx, data, len);
 }

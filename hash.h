@@ -3,6 +3,8 @@
 
 #if defined(SHA1_PPC)
 #include "ppc/sha1.h"
+#elif defined(SHA1DC)
+#include "sha1dc/sha1.h"
 #elif defined(SHA1_APPLE)
 #include <CommonCrypto/CommonDigest.h>
 #elif defined(SHA1_OPENSSL)
