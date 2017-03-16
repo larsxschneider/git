@@ -4,6 +4,8 @@
 * See accompanying file LICENSE.txt or copy at
 * https://opensource.org/licenses/MIT
 ***/
+#ifndef SHA1DC_SHA1_H
+#define SHA1DC_SHA1_H
 
 #if defined(__cplusplus)
 extern "C" {
@@ -98,7 +100,6 @@ void SHA1DCUpdate(SHA1_CTX*, const char*, size_t);
 /* returns: 0 = no collision detected, otherwise = collision found => warn user for active attack */
 int  SHA1DCFinal(unsigned char[20], SHA1_CTX*);
 
-
 /*
  * Same as SHA1DCFinal, but convert collision attack case into a verbose die().
  */
@@ -117,3 +118,5 @@ void git_SHA1DCUpdate(SHA1_CTX *ctx, const void *data, unsigned long len);
 #if defined(__cplusplus)
 }
 #endif
+
+#endif /* SHA1DC_SHA1_H */
