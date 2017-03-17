@@ -48,10 +48,12 @@ EOF
 	git bisect reset >/dev/null 2>&1
 }
 
-case "$CURRENT_BRANCH_NAME" in
-	master) STABLE_BRANCH="maint";;
-	bisect-ci/v2)   STABLE_BRANCH="master";;
-esac
+# case "$CURRENT_BRANCH_NAME" in
+# 	master) STABLE_BRANCH="maint";;
+# 	bisect-ci/v2)   STABLE_BRANCH="master";;
+# esac
+
+STABLE_BRANCH=4a9b9b32d47212e4ea43cd1fa3c11afef6d4c491
 
 if test "$REPO_ORG_NAME" = "larsxschneider/git" && test -n $STABLE_BRANCH
 then
