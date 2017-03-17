@@ -53,7 +53,7 @@ EOF
 # 	bisect-ci/v2)   STABLE_BRANCH="master";;
 # esac
 
-STABLE_BRANCH=4a9b9b32d47212e4ea43cd1fa3c11afef6d4c491
+STABLE_BRANCH=next
 
 if test "$REPO_ORG_NAME" = "larsxschneider/git" && test -n $STABLE_BRANCH
 then
