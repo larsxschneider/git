@@ -20,7 +20,8 @@ gfwci () {
 }
 
 # Trigger build job
-BUILD_ID=$(gfwci "action=trigger&branch=$BRANCH&commit=$COMMIT&skipTests=false")
+BUILD_ID=17
+# $(gfwci "action=trigger&branch=$BRANCH&commit=$COMMIT&skipTests=false")
 
 # Check if the $BUILD_ID contains a number
 case $BUILD_ID in
