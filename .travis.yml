@@ -48,7 +48,7 @@ matrix:
       script:
         - >
           test "$TRAVIS_REPO_SLUG" != "larsxschneider/git" ||
-          ci/run-windows-build.sh $GFW_CI_TOKEN $TRAVIS_BRANCH 4a9b9b32d47212e4ea43cd1fa3c11afef6d4c491
+          ci/run-windows-build.sh $TRAVIS_BRANCH 4a9b9b32d47212e4ea43cd1fa3c11afef6d4c491
           # TODO: change "larsxschneider/git" to "git/git"
           # TODO: replace test hash above with this: $(git rev-parse HEAD)
       after_failure:
