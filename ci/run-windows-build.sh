@@ -22,7 +22,7 @@ gfwci () {
         "https://git-for-windows-ci.azurewebsites.net/api/TestNow?$1" \
     )
     CURL_ERROR_CODE=$?
-    if test "$CURL_ERROR_CODE" -ne 0
+    if test $CURL_ERROR_CODE -ne 0
     then
         return $CURL_ERROR_CODE
     fi
@@ -33,8 +33,13 @@ gfwci () {
 }
 
 # Trigger build job
-BUILD_ID=17
-# $(gfwci "action=trigger&branch=$BRANCH&commit=$COMMIT&skipTests=false")
+BUILD_ID=$(gfwci "action=trigger&branch=$BRANCH&commit=$COMMIT&skipTests=false")
+if test $? -ne 0
+then
+	echo "Unable to trigger Visual Studio Team Services Build"
+	echo "$BUILD_ID"
+	exit 1
+fi
 
 # Check if the $BUILD_ID contains a number
 case $BUILD_ID in
