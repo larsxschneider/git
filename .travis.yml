@@ -52,6 +52,9 @@ matrix:
       before_script:
       script:
         - >
+          echo "huhu";
+          echo "11 $TRAVIS_BRANCH"
+          echo "22 $(git rev-parse HEAD)"
           test "$TRAVIS_REPO_SLUG" != "git/git" ||
           ci/run-windows-build.sh $TRAVIS_BRANCH $(git rev-parse HEAD)
       after_failure:
