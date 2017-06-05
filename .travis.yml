@@ -20,6 +20,7 @@ addons:
     - language-pack-is
     - git-svn
     - apache2
+    - sparse
 
 env:
   global:
