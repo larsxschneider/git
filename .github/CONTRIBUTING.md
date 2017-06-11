@@ -1,9 +1,12 @@
 ## Contributing to Git
 
-Thanks for taking the time to contribute to Git! Please be advised, that 
-the Git community does not use github.com for their contributions. Instead, 
-we use a [mailing list](http://public-inbox.org/git/) for code submissions, 
-code reviews, and bug reports. 
+Thanks for taking the time to contribute to Git! Please be advised, that the 
+Git community does not use github.com for their contributions. Instead, we use 
+a [mailing list](http://public-inbox.org/git/) for code submissions, code 
+reviews, and bug reports. 
+
+Nevertheless, you can use the [submitGit](http://submitgit.herokuapp.com/) 
+project to submit the commits of your Pull Requests to our mailing list.
 
 Please [read the maintainer notes](http://repo.or.cz/w/git.git?a=blob_plain;f=MaintNotes;hb=todo) 
 to learn how the Git project is managed, and how you can work with it. 
