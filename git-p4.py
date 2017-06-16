@@ -1246,8 +1246,10 @@ class P4UserMap:
         for output in p4CmdList("users"):
             if not output.has_key("User"):
                 continue
-            self.users[output["User"]] = output["FullName"] + " <" + output["Email"] + ">"
-            self.emails[output["Email"]] = output["User"]
+            if self.verbose:
+                print('User: {0} = {1} <{2}>'.format(output["User"].lower(), output["FullName"], output["Email"]))
+            self.users[output["User"].lower()] = output["FullName"] + " <" + output["Email"] + ">"
+            self.emails[output["Email"].lower()] = output["User"]
 
         mapUserConfigRegex = re.compile(r"^\s*(\S+)\s*=\s*(.+)\s*<(\S+)>\s*$", re.VERBOSE)
         for mapUserConfig in gitConfigList("git-p4.mapUser"):
@@ -1256,8 +1258,8 @@ class P4UserMap:
                 user = mapUser[0][0]
                 fullname = mapUser[0][1]
                 email = mapUser[0][2]
-                self.users[user] = fullname + " <" + email + ">"
-                self.emails[email] = user
+                self.users[user.lower()] = fullname + " <" + email.lower() + ">"
+                self.emails[email.lower()] = user
 
         s = ''
         for (key, val) in self.users.items():
@@ -1275,7 +1277,7 @@ class P4UserMap:
             cache.close()
             for line in lines:
                 entry = line.strip().split("\t")
-                self.users[entry[0]] = entry[1]
+                self.users[entry[0].lower()] = entry[1]
         except IOError:
             self.getUserMapFromPerforceServer()
 
@@ -1485,10 +1487,10 @@ class P4Submit(Command, P4UserMap):
         gitEmail = read_pipe(["git", "log", "--max-count=1",
                               "--format=%ae", id])
         gitEmail = gitEmail.strip()
-        if not self.emails.has_key(gitEmail):
-            return (None,gitEmail)
+        if not self.emails.has_key(gitEmail.lower()):
+            return (None, gitEmail.lower())
         else:
-            return (self.emails[gitEmail],gitEmail)
+            return (self.emails[gitEmail.lower()], gitEmail.lower())
 
     def checkValidP4Users(self,commits):
         # check if any git authors cannot be mapped to p4 users
@@ -2773,8 +2775,8 @@ class P4Sync(Command, P4UserMap):
                 self.streamOneP4File(self.stream_file, self.stream_contents)
 
     def make_email(self, userid):
-        if userid in self.users:
-            return self.users[userid]
+        if userid.lower() in self.users:
+            return self.users[userid.lower()]
         else:
             return "%s <a@b>" % userid
 
@@ -2891,7 +2893,7 @@ class P4Sync(Command, P4UserMap):
         self.gitStream.write("mark :%s\n" % details["change"])
         self.committedChanges.add(int(details["change"]))
         committer = ""
-        if author not in self.users:
+        if author.lower() not in self.users:
             self.getUserMapFromPerforceServer()
         committer = "%s %s %s" % (self.make_email(author), epoch, self.tz)
 
