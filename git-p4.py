@@ -2805,6 +2805,18 @@ class P4Sync(Command, P4UserMap):
 
         filesToIgnore = []
 
+        for pathPrefix in gitConfigList('git-p4.ignoreBinaryFileHistoryUnder'):
+            filesToImport = []
+            for f in files:
+                if ('binary' in f['type'] and
+                    f['action'] not in self.delete_actions and
+                    p4PathStartsWith(f['path'], pathPrefix)) :
+                    print 'Ignore binary file %s under %s ' % (f['path'], pathPrefix)
+                    filesToIgnore.append('{}: {}#{}'.format(f['action'], f['path'], f['rev']))
+                    continue
+                filesToImport.append(f)
+            files = filesToImport
+
         if gitConfig('git-p4.ignoreBinaryFileHistoryBefore'):
             if gitConfig('git-p4.ignoreBinaryFileHistoryBefore') == 'HEAD':
                 completeCL = int(self.headCL)

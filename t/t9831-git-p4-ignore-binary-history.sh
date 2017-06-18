@@ -188,6 +188,75 @@ test_expect_success 'Ignore binary content before HEAD' '
 	)
 '
 
+test_expect_success 'Ignore binary content under path' '
+	client_view "//depot/... //client/..." &&
+	test_when_finished cleanup_git &&
+	(
+		cd "$git" &&
+		git init . &&
+		git config git-p4.useClientSpec true &&
+		git config git-p4.ignoreBinaryFileHistoryUnder "//depot/dir/" &&
+		git p4 clone --destination="$git" //depot@all &&
+
+		cat >expect <<-\EOF &&
+			rev7 - edit file
+			[git-p4: depot-paths = "//depot/": change = 7]
+
+
+			 file.bin | 2 +-
+			 1 file changed, 1 insertion(+), 1 deletion(-)
+			rev6 - delete files
+			[git-p4: depot-paths = "//depot/": change = 6]
+
+
+			 dir/subfile.t2b | 1 -
+			 file.t2b        | 1 -
+			 2 files changed, 2 deletions(-)
+			rev5 - change file type from text to binary
+			[git-p4: depot-paths = "//depot/": change = 5]
+
+			Ignored binaries on git-p4 import:
+			edit: //depot/dir/subfile.t2b#2
+
+
+			 file.t2b | 2 +-
+			 1 file changed, 1 insertion(+), 1 deletion(-)
+			rev4 - add sub content 4
+			[git-p4: depot-paths = "//depot/": change = 4]
+
+			Ignored binaries on git-p4 import:
+			add: //depot/dir/subfile.bin#1
+
+
+			 dir/subfile.t2b | 1 +
+			 dir/subfile.txt | 1 +
+			 2 files changed, 2 insertions(+)
+			rev3 - edit bin content 3
+			[git-p4: depot-paths = "//depot/": change = 3]
+
+
+			 file.bin | 2 +-
+			 1 file changed, 1 insertion(+), 1 deletion(-)
+			rev2 - edit bin content 2
+			[git-p4: depot-paths = "//depot/": change = 2]
+
+
+			 file.bin | 2 +-
+			 1 file changed, 1 insertion(+), 1 deletion(-)
+			rev1 - add all content 1
+			[git-p4: depot-paths = "//depot/": change = 1]
+
+
+			 file.bin | 1 +
+			 file.t2b | 1 +
+			 file.txt | 1 +
+			 3 files changed, 3 insertions(+)
+		EOF
+		git log --format="%B" --stat >actual &&
+		test_cmp expect actual
+	)
+'
+
 test_expect_success 'kill p4d' '
 	kill_p4d
 '
