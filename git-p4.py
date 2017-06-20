@@ -2304,7 +2304,10 @@ class View(object):
         """ Caching file paths by "p4 where" batch query """
 
         # List depot file paths exclude that already cached
-        fileArgs = [f['path'] for f in files if f['path'] not in self.client_spec_path_cache]
+        if gitConfigBool('core.ignorecase'):
+            fileArgs = [f['path'] for f in files if f['path'].lower() not in self.client_spec_path_cache]
+        else:
+            fileArgs = [f['path'] for f in files if f['path'] not in self.client_spec_path_cache]
 
         if len(fileArgs) == 0:
             return  # All files in cache
