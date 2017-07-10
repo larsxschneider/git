@@ -2886,7 +2886,9 @@ class P4Sync(Command, P4UserMap):
                             self.fileInfoCache[f['path']] = fileInfo
                         if (('action' in fileInfo and fileInfo['action'] in self.delete_actions) or
                             ('rev' in fileInfo and fileInfo['rev'] > f['rev'])):
-                            print "Ignore binary file %s as its content is not present after CL %i " % (f['path'], completeCL)
+                            print "Ignore binary file %s (%s) as its content is not present after CL %i " % (
+                                f['path'], f['action'], completeCL
+                            )
                             filesToIgnore.append('{}: {}#{}'.format(f['action'], f['path'], f['rev']))
                             continue
                     filesToImport.append(f)
