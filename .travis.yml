@@ -8,11 +8,11 @@ cache:
 
 os:
   - linux
-  - osx
+
+dist: trusty
 
 compiler:
   - clang
-  - gcc
 
 addons:
   apt:
@@ -36,90 +36,7 @@ env:
     # t9810 occasionally fails on Travis CI OS X
     # t9816 occasionally fails with "TAP out of sequence errors" on Travis CI OS X
     - GIT_SKIP_TESTS="t9810 t9816"
-
-matrix:
-  include:
-    - env:
-      - SANITIZE=address
-      - CC=clang
-      os: linux
-      compiler: clang
-      before_script:
-    - env: SANITIZE=undefined
-      os: linux
-      compiler: clang
-      before_script:
-    - env: SANITIZE=thread
-      os: linux
-      compiler: clang
-      before_script:
-    - env: SANITIZE=memory
-      os: linux
-      compiler: clang
-      before_script:
-    - env: GETTEXT_POISON=YesPlease
-      os: linux
-      compiler:
-      addons:
-      before_install:
-    - env: Windows
-      os: linux
-      compiler:
-      addons:
-      before_install:
-      before_script:
-      script:
-        - >
-          test "$TRAVIS_REPO_SLUG" != "git/git" ||
-          ci/run-windows-build.sh $TRAVIS_BRANCH $(git rev-parse HEAD)
-      after_failure:
-    - env: Linux32
-      os: linux
-      compiler:
-      services:
-        - docker
-      before_install:
-        - docker pull daald/ubuntu32:xenial
-      before_script:
-      script:
-        - >
-          docker run
-          --interactive
-          --env DEVELOPER
-          --env DEFAULT_TEST_TARGET
-          --env GIT_PROVE_OPTS
-          --env GIT_TEST_OPTS
-          --env GIT_TEST_CLONE_2GB
-          --volume "${PWD}:/usr/src/git"
-          daald/ubuntu32:xenial
-          /usr/src/git/ci/run-linux32-build.sh $(id -u $USER)
-        # Use the following command to debug the docker build locally:
-        # $ docker run -itv "${PWD}:/usr/src/git" --entrypoint /bin/bash daald/ubuntu32:xenial
-        # root@container:/# /usr/src/git/ci/run-linux32-build.sh
-    - env: Static Analysis
-      os: linux
-      compiler:
-      addons:
-        apt:
-          packages:
-          - coccinelle
-      before_install:
-      script:
-        # "before_script" that builds Git is inherited from base job
-        - make coccicheck
-      after_failure:
-    - env: Documentation
-      os: linux
-      compiler:
-      addons:
-        apt:
-          packages:
-          - asciidoc
-          - xmlto
-      before_install:
-      before_script: gem install asciidoctor
-      script: ci/test-documentation.sh
-      after_failure:
+    - SANITIZE=address
 
 before_install:
   - >
