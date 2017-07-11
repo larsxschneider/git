@@ -39,7 +39,9 @@ env:
 
 matrix:
   include:
-    - env: SANITIZE=address
+    - env:
+      - SANITIZE=address
+      - CC=clang
       os: linux
       compiler: clang
       before_script:
