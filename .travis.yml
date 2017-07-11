@@ -42,15 +42,19 @@ matrix:
     - env: SANITIZE=address
       os: linux
       compiler: clang
+      before_script:
     - env: SANITIZE=undefined
       os: linux
       compiler: clang
+      before_script:
     - env: SANITIZE=thread
       os: linux
       compiler: clang
+      before_script:
     - env: SANITIZE=memory
       os: linux
       compiler: clang
+      before_script:
     - env: GETTEXT_POISON=YesPlease
       os: linux
       compiler:
