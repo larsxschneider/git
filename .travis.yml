@@ -85,6 +85,8 @@ before_script:
   - >
     cc --version;
     which cc;
+    ls -l /usr/bin/cc;
+    ln -s /usr/bin/cc clang;
     make --jobs=2
 
 script:
