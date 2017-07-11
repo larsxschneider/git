@@ -39,6 +39,18 @@ env:
 
 matrix:
   include:
+    - env: SANITIZE=address
+      os: linux
+      compiler: clang
+    - env: SANITIZE=undefined
+      os: linux
+      compiler: clang
+    - env: SANITIZE=thread
+      os: linux
+      compiler: clang
+    - env: SANITIZE=memory
+      os: linux
+      compiler: clang
     - env: GETTEXT_POISON=YesPlease
       os: linux
       compiler:
