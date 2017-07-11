@@ -76,7 +76,12 @@ before_install:
     echo "$(tput setaf 6)Git-LFS Version$(tput sgr0)";
     git-lfs version;
 
-before_script: cc --version; make --jobs=2
+before_script:
+  - >
+    cc --version
+    which cc
+    rm /usr/bin/cc
+    make --jobs=2
 
 script:
   - >
