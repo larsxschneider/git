@@ -75,8 +75,8 @@ echo "Visual Studio Team Services Build #${BUILD_ID}"
 echo "928" > $PREVIOUS_BUILD_IDS
 echo $BUILD_ID >> $PREVIOUS_BUILD_IDS
 
-
-cat $PREVIOUS_BUILD_IDS | tac | tail -n+2
+cat $PREVIOUS_BUILD_IDS | tac
+cat $PREVIOUS_BUILD_IDS | tac | tail -n+1
 
 # Wait until build job finished
 STATUS=
@@ -112,7 +112,7 @@ do
 					break
 					;;
 			esac
-		done < $PREVIOUS_BUILD_IDS | tac
+		done < $PREVIOUS_BUILD_IDS | tac | tail -n+1
 	fi
 done
 
