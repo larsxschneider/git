@@ -75,11 +75,13 @@ echo "Visual Studio Team Services Build #${BUILD_ID}"
 echo "928" > $PREVIOUS_BUILD_IDS
 echo $BUILD_ID >> $PREVIOUS_BUILD_IDS
 
-echo "11"
+echo "--1"
 cat $PREVIOUS_BUILD_IDS | tac
-echo "22"
+echo "--2"
+cat $PREVIOUS_BUILD_IDS | tac | tail -n+1
+echo "--3"
 cat $PREVIOUS_BUILD_IDS | tac | tail -n+2
-echo "33"
+echo "--4"
 
 # Wait until build job finished
 STATUS=
@@ -88,7 +90,27 @@ IS_PREVIOUS_BUILD_ID=
 while true
 do
 	LAST_STATUS=$STATUS
-	STATUS=$(gfwci "action=status&buildId=$BUILD_ID")
+	if test $(($(date +%s) - $START)) -ge 0 # 9000 sec = 2.5h
+	then
+		printf "\n\nBuild #${BUILD_ID} hit the timeout. Checking previous builds ..."
+		while read PREVIOUS
+		do
+			echo "AAAAAA xx$PREVIOUSxx"
+			STATUS=$(gfwci "action=status&buildId=$PREVIOUS")
+			echo "BBBBBB $STATUS"
+			case "$STATUS" in
+				 "completed: *")
+					echo "#${PREVIOUS} completed!"
+					BUILD_ID=$PREVIOUS
+					IS_PREVIOUS_BUILD_ID=1
+					break
+					;;
+			esac
+		done < $PREVIOUS_BUILD_IDS | tac | tail -n+1
+	else
+		STATUS=$(gfwci "action=status&buildId=$BUILD_ID")
+	fi
+
 	test "$STATUS" = "$LAST_STATUS" || printf "\nStatus: %s " "$STATUS"
 	printf "."
 
@@ -98,25 +120,6 @@ do
 		    "completed: failed")                   break;; # failure
 	*) echo "Unhandled status: $STATUS";               break;; # unknown
 	esac
-
-	if test $(($(date +%s) - $START)) -ge 0 # 9000 sec = 2.5h
-	then
-		printf "\n\nBuild #${BUILD_ID} hit the timeout. Checking previous builds ..."
-		while read PREVIOUS
-		do
-			echo "AAAAAA $PREVIOUS"
-			STATUS=$(gfwci "action=status&buildId=$PREVIOUS")
-			echo "BBBBBB $STATUS"
-			case "$STATUS" in
-				 "completed*")
-					echo "#${PREVIOUS} completed!"
-					BUILD_ID=$PREVIOUS
-					IS_PREVIOUS_BUILD_ID=1
-					break
-					;;
-			esac
-		done < $PREVIOUS_BUILD_IDS | tac | tail -n+1
-	fi
 done
 
 if test -n "$IS_PREVIOUS_BUILD_ID"
