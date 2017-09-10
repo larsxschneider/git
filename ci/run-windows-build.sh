@@ -71,7 +71,7 @@ esac
 
 echo "Visual Studio Team Services Build #${BUILD_ID}"
 
-set -x
+# set -x
 # echo "928" >> $PREVIOUS_BUILD_IDS
 echo $BUILD_ID >> $PREVIOUS_BUILD_IDS
 
@@ -93,7 +93,7 @@ do
 	*) echo "Unhandled status: $STATUS";               break;; # unknown
 	esac
 
-	if test $(($(date +%s) - $START)) -ge 90 # 9000 sec = 2.5h
+	if test $(($(date +%s) - $START)) -ge 0 # 9000 sec = 2.5h
 	then
 		echo "Build #${BUILD_ID} hit the timeout."
 		while read PREVIOUS
