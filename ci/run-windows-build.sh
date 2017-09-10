@@ -95,7 +95,7 @@ do
 		printf "\n\nBuild #${BUILD_ID} hit the timeout. Checking previous builds ..."
 		while read PREVIOUS
 		do
-			echo "AAAAAA xx$PREVIOUSxx"
+			echo "AAAAAA xx$PREVIOUS xx"
 			STATUS=$(gfwci "action=status&buildId=$PREVIOUS")
 			echo "BBBBBB $STATUS"
 			case "$STATUS" in
@@ -107,9 +107,8 @@ do
 					;;
 			esac
 		done < $PREVIOUS_BUILD_IDS | tac | tail -n+1
-	else
-		STATUS=$(gfwci "action=status&buildId=$BUILD_ID")
 	fi
+	STATUS=$(gfwci "action=status&buildId=$BUILD_ID")
 
 	test "$STATUS" = "$LAST_STATUS" || printf "\nStatus: %s " "$STATUS"
 	printf "."
