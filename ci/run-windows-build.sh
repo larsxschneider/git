@@ -13,6 +13,8 @@ test -z "$GFW_CI_TOKEN" && echo "GFW_CI_TOKEN not defined" && exit
 
 BRANCH=$1
 COMMIT=$2
+START=$(date +%s)
+PREVIOUS_BUILD_IDS=$HOME/travis-cache/.vsts.build
 
 gfwci () {
 	local CURL_ERROR_CODE HTTP_CODE
@@ -69,9 +71,13 @@ esac
 
 echo "Visual Studio Team Services Build #${BUILD_ID}"
 
+echo "928" >> $PREVIOUS_BUILD_IDS
+echo $BUILD_ID >> $PREVIOUS_BUILD_IDS
+
 # Wait until build job finished
 STATUS=
 RESULT=
+IS_PREVIOUS=
 while true
 do
 	LAST_STATUS=$STATUS
@@ -85,7 +91,27 @@ do
 		    "completed: failed")                   break;; # failure
 	*) echo "Unhandled status: $STATUS";               break;; # unknown
 	esac
+
+	if test $(($(date +%s) - $START)) -ge 90 # 9000 sec = 2.5h
+		echo "Build #${BUILD_ID} hit the timeout. Checking earlier builds..."
+
+		while read PREVIOUS
+		do
+			case "$(gfwci "action=status&buildId=$PREVIOUS")" in
+				 "completed*")
+					echo "#${PREVIOUS} completed!"
+					BUILD_ID=$PREVIOUS
+					IS_PREVIOUS=1
+					break
+					;;
+			esac
+		done < $PREVIOUS_BUILD_IDS | tac | tail -n+2
+	fi
 done
+
+# If the current build is not a completed previous build then we
+# erase
+test -n "$IS_PREVIOUS" || echo $BUILD_ID > $PREVIOUS_BUILD_IDS
 
 # Print log
 echo ""

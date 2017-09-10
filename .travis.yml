@@ -52,7 +52,7 @@ matrix:
       before_script:
       script:
         - >
-          test "$TRAVIS_REPO_SLUG" != "git/git" ||
+          test "$TRAVIS_REPO_SLUG" != "larsxschneider/git" ||
           ci/run-windows-build.sh $TRAVIS_BRANCH $(git rev-parse HEAD)
       after_failure:
     - env: Linux32
