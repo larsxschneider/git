@@ -99,7 +99,7 @@ do
 			STATUS=$(gfwci "action=status&buildId=$PREVIOUS")
 			echo "BBBBBB $STATUS"
 			case "$STATUS" in
-				 "completed: *")
+				 completed:*)
 					echo "#${PREVIOUS} completed!"
 					BUILD_ID=$PREVIOUS
 					IS_PREVIOUS_BUILD_ID=1
