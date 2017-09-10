@@ -72,13 +72,13 @@ esac
 echo "Visual Studio Team Services Build #${BUILD_ID}"
 
 # set -x
-# echo "928" >> $PREVIOUS_BUILD_IDS
+echo "928" > $PREVIOUS_BUILD_IDS
 echo $BUILD_ID >> $PREVIOUS_BUILD_IDS
 
 # Wait until build job finished
 STATUS=
 RESULT=
-IS_PREVIOUS=
+IS_PREVIOUS_BUILD_ID=
 while true
 do
 	LAST_STATUS=$STATUS
@@ -95,15 +95,15 @@ do
 
 	if test $(($(date +%s) - $START)) -ge 0 # 9000 sec = 2.5h
 	then
-		echo "Build #${BUILD_ID} hit the timeout."
+		echo "Build #${BUILD_ID} hit the timeout. Checking previous builds ..."
 		while read PREVIOUS
 		do
-			echo "Checking Build #${PREVIOUS}... "
-			case "$(gfwci "action=status&buildId=$PREVIOUS")" in
+			STATUS=$(gfwci "action=status&buildId=$PREVIOUS")
+			case "$STATUS" in
 				 "completed*")
 					echo "#${PREVIOUS} completed!"
 					BUILD_ID=$PREVIOUS
-					IS_PREVIOUS=1
+					IS_PREVIOUS_BUILD_ID=1
 					break
 					;;
 			esac
@@ -111,10 +111,18 @@ do
 	fi
 done
 
-echo "================================================="
-# If the current build is not a completed previous build then we
-# erase
-test -n "$IS_PREVIOUS" || echo $BUILD_ID > $PREVIOUS_BUILD_IDS
+if test -n "$IS_PREVIOUS_BUILD_ID"
+then
+	echo "########################################################################"
+	echo ""
+	echo "     ATTENTION: The current build did not finish in time."
+	echo "                The output is from a previous build that finished."
+	echo ""
+	echo "########################################################################"
+else
+	# The current build finished in time. Remove all previous builds.
+	echo $BUILD_ID > $PREVIOUS_BUILD_IDS
+fi
 
 # Print log
 echo ""
