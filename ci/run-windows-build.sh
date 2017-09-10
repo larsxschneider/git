@@ -71,7 +71,8 @@ esac
 
 echo "Visual Studio Team Services Build #${BUILD_ID}"
 
-echo "928" >> $PREVIOUS_BUILD_IDS
+set -x
+# echo "928" >> $PREVIOUS_BUILD_IDS
 echo $BUILD_ID >> $PREVIOUS_BUILD_IDS
 
 # Wait until build job finished
@@ -110,6 +111,7 @@ do
 	fi
 done
 
+echo "================================================="
 # If the current build is not a completed previous build then we
 # erase
 test -n "$IS_PREVIOUS" || echo $BUILD_ID > $PREVIOUS_BUILD_IDS
