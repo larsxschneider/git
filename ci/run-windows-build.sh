@@ -93,10 +93,11 @@ do
 	esac
 
 	if test $(($(date +%s) - $START)) -ge 90 # 9000 sec = 2.5h
-		echo "Build #${BUILD_ID} hit the timeout. Checking earlier builds..."
-
+	then
+		echo "Build #${BUILD_ID} hit the timeout."
 		while read PREVIOUS
 		do
+			echo "Checking Build #${PREVIOUS}... "
 			case "$(gfwci "action=status&buildId=$PREVIOUS")" in
 				 "completed*")
 					echo "#${PREVIOUS} completed!"
