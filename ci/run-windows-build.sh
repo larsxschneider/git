@@ -93,7 +93,7 @@ do
 	if test $(($(date +%s) - $START)) -ge 0 # 9000 sec = 2.5h
 	then
 		printf "\n\nBuild #${BUILD_ID} hit the timeout. Checking previous builds ..."
-		while read PREVIOUS
+		tac $PREVIOUS_BUILD_IDS | tail -n+1 | while read PREVIOUS
 		do
 			echo "AAAAAA xx$PREVIOUS xx"
 			STATUS=$(gfwci "action=status&buildId=$PREVIOUS")
@@ -106,7 +106,7 @@ do
 					break
 					;;
 			esac
-		done < $PREVIOUS_BUILD_IDS | tac | tail -n+1
+		done
 	fi
 	STATUS=$(gfwci "action=status&buildId=$BUILD_ID")
 
