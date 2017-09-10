@@ -98,7 +98,9 @@ do
 		printf "\n\nBuild #${BUILD_ID} hit the timeout. Checking previous builds ..."
 		while read PREVIOUS
 		do
+			echo "AAAAAA $PREVIOUS"
 			STATUS=$(gfwci "action=status&buildId=$PREVIOUS")
+			echo "BBBBBB $STATUS"
 			case "$STATUS" in
 				 "completed*")
 					echo "#${PREVIOUS} completed!"
@@ -107,7 +109,7 @@ do
 					break
 					;;
 			esac
-		done < tac $PREVIOUS_BUILD_IDS | tail -n+2
+		done < $PREVIOUS_BUILD_IDS | tac | tail -n+2
 	fi
 done
 
