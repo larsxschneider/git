@@ -261,6 +261,8 @@ static int write_entry(struct cache_entry *ce,
 	size_t newsize = 0;
 	struct stat st;
 	const struct submodule *sub;
+	struct delayed_checkout *dco = state->delayed_checkout;
+	const int is_checkout_retry = (dco && dco->state == CE_RETRY);
 
 	if (ce_mode_s_ifmt == S_IFREG) {
 		struct stream_filter *filter = get_stream_filter(ce->name,
@@ -275,12 +277,19 @@ static int write_entry(struct cache_entry *ce,
 	switch (ce_mode_s_ifmt) {
 	case S_IFREG:
 	case S_IFLNK:
-		new = read_blob_entry(ce, &size);
-		if (!new)
-			return error("unable to read sha1 file of %s (%s)",
-				path, oid_to_hex(&ce->oid));
 
-		if (ce_mode_s_ifmt == S_IFLNK && has_symlinks && !to_tempfile) {
+		if (is_checkout_retry) {
+			/* Do not send the blob to the filter process in case of a retry. */
+			new = NULL;
+			size = 0;
+		} else {
+			new = read_blob_entry(ce, &size);
+			if (!new)
+				return error("unable to read sha1 file of %s (%s)",
+					path, oid_to_hex(&ce->oid));
+		}
+
+		if (new && ce_mode_s_ifmt == S_IFLNK && has_symlinks && !to_tempfile) {
 			ret = symlink(new, path);
 			free(new);
 			if (ret)
@@ -293,13 +302,7 @@ static int write_entry(struct cache_entry *ce,
 		 * Convert from git internal format to working tree format
 		 */
 		if (ce_mode_s_ifmt == S_IFREG) {
-			struct delayed_checkout *dco = state->delayed_checkout;
 			if (dco && dco->state != CE_NO_DELAY) {
-				/* Do not send the blob in case of a retry. */
-				if (dco->state == CE_RETRY) {
-					new = NULL;
-					size = 0;
-				}
 				ret = async_convert_to_working_tree(
 					ce->name, new, size, &buf, dco);
 				if (ret && string_list_has_string(&dco->paths, ce->name)) {
