@@ -355,7 +355,8 @@ finish:
 	if (state->refresh_cache) {
 		assert(state->istate);
 		if (!fstat_done)
-			lstat(ce->name, &st);
+			if (lstat(ce->name, &st) < 0)
+				return error("unable to get status of file %s", ce->name);
 		fill_stat_cache_info(ce, &st);
 		ce->ce_flags |= CE_UPDATE_IN_BASE;
 		state->istate->cache_changed |= CE_ENTRY_CHANGED;
