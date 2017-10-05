@@ -304,7 +304,7 @@ static int write_entry(struct cache_entry *ce,
 					ce->name, new, size, &buf, dco);
 				if (ret && string_list_has_string(&dco->paths, ce->name)) {
 					free(new);
-					goto finish;
+					goto delayed;
 				}
 			} else
 				ret = convert_to_working_tree(
@@ -360,6 +360,7 @@ finish:
 		ce->ce_flags |= CE_UPDATE_IN_BASE;
 		state->istate->cache_changed |= CE_ENTRY_CHANGED;
 	}
+delayed:
 	return 0;
 }
 
