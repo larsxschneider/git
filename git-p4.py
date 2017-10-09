@@ -1057,7 +1057,8 @@ class LargeFileSystem(object):
            steps."""
         if self.exceedsLargeFileThreshold(relPath, contents) or \
            self.hasLargeFileExtension(relPath) or \
-           self.matchesLargeFileRegex(relPath):
+           self.matchesLargeFileRegex(relPath) or \
+           self.isLargeFile(relPath):
             contentTempFile = self.generateTempFile(contents)
             (pointer_git_mode, contents, localLargeFile) = self.generatePointer(contentTempFile)
             if pointer_git_mode:

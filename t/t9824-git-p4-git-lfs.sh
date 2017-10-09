@@ -209,6 +209,45 @@ test_expect_success 'Remove file from repo and store files in LFS based on size 
 	)
 '
 
+test_expect_success 'Reduce the size of a file' '
+	client_view "//depot/... //client/..." &&
+	(
+		cd "$cli" &&
+
+		p4 edit file1.txt &&
+		echo "small" >file1.txt &&
+		p4 submit -d "Reduce the size of a file"
+	)
+'
+
+test_expect_success 'Keep files that shrink in size in LFS' '
+	client_view "//depot/... //client/..." &&
+	test_when_finished cleanup_git &&
+	(
+		cd "$git" &&
+		git init . &&
+		git config git-p4.useClientSpec true &&
+		git config git-p4.largeFileSystem GitLFS &&
+		git config git-p4.largeFileThreshold 20 &&
+		git p4 clone --destination="$git" //depot@all &&
+
+		test_file_in_lfs file1.txt 6 "small" &&
+		test_file_count_in_dir ".git/lfs/objects" 4 &&
+
+		cat >expect <<-\EOF &&
+
+		#
+		# Git LFS (see https://git-lfs.github.com/)
+		#
+		/file1.txt filter=lfs diff=lfs merge=lfs -text
+		/file2.dat filter=lfs diff=lfs merge=lfs -text
+		/path[[:space:]]with[[:space:]]special-_(){}\[\]/file3.bin filter=lfs diff=lfs merge=lfs -text
+		EOF
+		test_path_is_file .gitattributes &&
+		test_cmp expect .gitattributes
+	)
+'
+
 test_expect_success 'Add .gitattributes and store files in LFS based on size (>24 bytes)' '
 	client_view "//depot/... //client/..." &&
 	(
