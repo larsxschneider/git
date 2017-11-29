@@ -45,6 +45,19 @@ int launch_editor(const char *path, struct strbuf *buffer, const char *const *en
 		const char *args[] = { editor, real_path(path), NULL };
 		struct child_process p = CHILD_PROCESS_INIT;
 		int ret, sig;
+		int print_waiting_for_editor = advice_waiting_for_editor && isatty(2);
+
+		if (print_waiting_for_editor) {
+			fprintf(stderr,
+				_("hint: Waiting for your editor to close the file... "));
+			if (is_terminal_dumb())
+				/*
+				 * A dumb terminal cannot erase the line later on. Add a
+				 * newline to separate the hint from subsequent output.
+				 */
+				fprintf(stderr, "\n");
+			fflush(stderr);
+		}
 
 		p.argv = args;
 		p.env = env;
@@ -63,6 +76,13 @@ int launch_editor(const char *path, struct strbuf *buffer, const char *const *en
 		if (ret)
 			return error("There was a problem with the editor '%s'.",
 					editor);
+
+		if (print_waiting_for_editor && !is_terminal_dumb())
+			/*
+			 * Go back to the beginning and erase the entire line to
+			 * avoid wasting the vertical space.
+			 */
+			fputs("\r\033[K", stderr);
 	}
 
 	if (!buffer)
