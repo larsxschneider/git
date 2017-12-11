@@ -272,6 +272,65 @@ few exceptions.  Even though...
   catch potential problems early, safety triggers.
 
 
+`checkout-encoding`
+^^^^^^^^^^^^^^^^^^^
+
+Git recognizes files encoded with ASCII or one of its supersets (e.g.
+UTF-8 or ISO-8859-1) as text files.  All other encodings are usually
+interpreted as binary and consequently built-in Git text processing
+tools (e.g. 'git diff') as well as most Git web front ends do not
+visualize the content.
+
+In these cases you can teach Git the encoding of a file in the working
+directory with the `checkout-encoding` attribute. If a file with this
+attributes is added to Git, then Git reencodes the content from the
+specified encoding to UTF-8 and stores the result in its internal data
+structure. On checkout the content is encoded back to the specified
+encoding.
+
+Please note that using the `checkout-encoding` attribute has a number
+of drawbacks:
+
+- Reencoding content to non-UTF encodings (e.g. SHIFT-JIS) can cause
+  errors as the conversion might not be round trip safe.
+
+- Reencoding content requires resources that might slow down certain
+  Git operations (e.g 'git checkout' or 'git add').
+
+- Git clients that do not support the `checkout-encoding` attribute or
+  the used encoding will checkout the respective files as UTF-8 encoded.
+  That means the content appears to be different which could cause
+  trouble. Affected clients are older Git versions and alternative Git
+  implementations such as JGit or libgit2 (as of January 2018).
+
+Use the `checkout-encoding` attribute only if you cannot store a file in
+UTF-8 encoding and if you want Git to be able to process the content as
+text.
+
+Use the following attributes if your '*.txt' files are UTF-16 encoded
+with byte order mark (BOM) and you want Git to perform automatic line
+ending conversion based on your platform.
+
+------------------------
+*.txt		text checkout-encoding=UTF-16
+------------------------
+
+Use the following attributes if your '*.txt' files are UTF-16 little
+endian encoded without BOM and you want Git to use Windows line endings
+in the working directory.
+
+------------------------
+*.txt 		checkout-encoding=UTF-16LE text eol=CRLF
+------------------------
+
+You can get a list of all available encodings on your platform with the
+following command:
+
+------------------------
+iconv --list
+------------------------
+
+
 `ident`
 ^^^^^^^
 
