@@ -7,6 +7,7 @@
 #include "sigchain.h"
 #include "pkt-line.h"
 #include "sub-process.h"
+#include "utf8.h"
 
 /*
  * convert.c - convert a file when checking it out and checking it in.
@@ -254,6 +255,149 @@ static int will_convert_lf_to_crlf(size_t len, struct text_stat *stats,
 	}
 	return 1;
 
+}
+
+#ifdef NO_ICONV
+#ifndef _ICONV_T
+/* The type is just a placeholder and not actually used. */
+typedef void* iconv_t;
+#endif
+#endif
+
+static struct encoding {
+	const char *name;
+	iconv_t to_git;       /* conversion to Git's canonical encoding (UTF-8) */
+	iconv_t to_worktree;  /* conversion to user-defined encoding */
+	struct encoding *next;
+} *encoding, **encoding_tail;
+static const char *default_encoding = "utf-8";
+static iconv_t invalid_conversion = (iconv_t)-1;
+
+static int encode_to_git(const char *path, const char *src, size_t src_len,
+			 struct strbuf *buf, struct encoding *enc)
+{
+#ifndef NO_ICONV
+	char *dst, *re_src;
+	int dst_len, re_src_len;
+
+	/*
+	 * No encoding is specified or there is nothing to encode.
+	 * Tell the caller that the content was not modified.
+	 */
+	if (!enc || (src && !src_len))
+		return 0;
+
+	/*
+	 * Looks like we got called from "would_convert_to_git()".
+	 * This means Git wants to know if it would encode (= modify!)
+	 * the content. Let's answer with "yes", since an encoding was
+	 * specified.
+	 */
+	if (!buf && !src)
+		return 1;
+
+	if (enc->to_git == invalid_conversion) {
+		enc->to_git = iconv_open(default_encoding, encoding->name);
+		if (enc->to_git == invalid_conversion)
+			warning(_("unsupported encoding %s"), encoding->name);
+	}
+
+	if (enc->to_worktree == invalid_conversion)
+		enc->to_worktree = iconv_open(encoding->name, default_encoding);
+
+	/*
+	 * Do nothing if the encoding is not supported. This could happen in
+	 * two cases:
+	 *   (1) The encoding is garbage. That is no problem as we would not
+	 *       encode the content to UTF-8 on "add" and we would not encode
+	 *       it back on "checkout".
+	 *   (2) Git users use different iconv versions that support different
+	 *       encodings. This could lead to problems, as the content might
+	 *       not be encoded on "add" but encoded back on "checkout" (or
+	 *       the other way around).
+	 * We print a one-time warning to the user in both cases above.
+	 */
+	if (enc->to_git == invalid_conversion || enc->to_worktree == invalid_conversion)
+		return 0;
+
+	dst = reencode_string_iconv(src, src_len, enc->to_git, &dst_len);
+	if (!dst)
+		/*
+		 * We could add the blob "as-is" to Git. However, on checkout
+		 * we would try to reencode to the original encoding. This
+		 * would fail and we would leave the user with a messed-up
+		 * working tree. Let's try to avoid this by screaming loud.
+		 */
+		die(_("failed to encode '%s' from %s to %s"),
+			path, enc->name, default_encoding);
+
+	/*
+	 * Encode dst back to ensure no information is lost. This wastes
+	 * a few cycles as most conversions are round trip conversion
+	 * safe. However, content that has an invalid encoding might not
+	 * match its original byte sequence after the UTF-8 conversion
+	 * round trip. Let's play safe here and check the round trip
+	 * conversion.
+	 */
+	re_src = reencode_string_iconv(dst, dst_len, enc->to_worktree, &re_src_len);
+	if (!re_src || strcmp(src, re_src)) {
+		die(_("encoding '%s' from %s to %s and back is not the same"),
+			path, enc->name, default_encoding);
+	}
+	free(re_src);
+
+	strbuf_attach(buf, dst, dst_len, dst_len + 1);
+	return 1;
+#else
+	warning(_("cannot encode '%s' from %s to %s because "
+		"your Git was not compiled with encoding support"),
+		path, enc->name, default_encoding);
+	return 0;
+#endif
+}
+
+static int encode_to_worktree(const char *path, const char *src, size_t src_len,
+			      struct strbuf *buf, struct encoding *enc)
+{
+#ifndef NO_ICONV
+	char *dst;
+	int dst_len;
+
+	/*
+	 * No encoding is specified or there is nothing to encode.
+	 * Tell the caller that the content was not modified.
+	 */
+	if (!enc || (src && !src_len))
+		return 0;
+
+	if (enc->to_worktree == invalid_conversion) {
+		enc->to_worktree = iconv_open(encoding->name, default_encoding);
+		if (enc->to_worktree == invalid_conversion)
+			warning("unsupported encoding %s", encoding->name);
+	}
+
+	/*
+	 * Do nothing if the encoding is not supported.
+	 * See detailed explanation in encode_to_git().
+	 */
+	if (enc->to_worktree == invalid_conversion)
+		return 0;
+
+	dst = reencode_string_iconv(src, src_len, enc->to_worktree, &dst_len);
+	if (!dst) {
+		warning("failed to encode '%s' from %s to %s",
+			path, default_encoding, encoding->name);
+		return 0;
+	}
+
+	strbuf_attach(buf, dst, dst_len, dst_len + 1);
+	return 1;
+#else
+	warning(_("cannot encode '%s' from %s to %s because "
+		"your Git was not compiled with encoding support"),
+		path, default_encoding, encoding->name);
+	return 0;
+#endif
 }
 
 static int crlf_to_git(const struct index_state *istate,
@@ -969,6 +1113,32 @@ static int ident_to_worktree(const char *path, const char *src, size_t len,
 	return 1;
 }
 
+static struct encoding *git_path_check_encoding(struct attr_check_item *check)
+{
+	const char *value = check->value;
+	struct encoding *enc;
+
+	if (ATTR_UNSET(value))
+		return NULL;
+
+	for (enc = encoding; enc; enc = enc->next)
+		if (!strcmp(value, enc->name))
+			return enc;
+
+	/* Don't encode to the default encoding */
+	if (!strcasecmp(value, default_encoding))
+		return NULL;
+
+	enc = xcalloc(1, sizeof(struct convert_driver));
+	enc->name = xstrdup(value);
+	enc->to_git = invalid_conversion;
+	enc->to_worktree = invalid_conversion;
+	*encoding_tail = enc;
+	encoding_tail = &(enc->next);
+
+	return enc;
+}
+
 static enum crlf_action git_path_check_crlf(struct attr_check_item *check)
 {
 	const char *value = check->value;
@@ -1024,6 +1194,7 @@ struct conv_attrs {
 	enum crlf_action attr_action; /* What attr says */
 	enum crlf_action crlf_action; /* When no attr is set, use core.autocrlf */
 	int ident;
+	struct encoding *encoding; /* Supported encoding or default encoding if NULL */
 };
 
 static void convert_attrs(struct conv_attrs *ca, const char *path)
@@ -1032,8 +1203,9 @@ static void convert_attrs(struct conv_attrs *ca, const char *path)
 
 	if (!check) {
 		check = attr_check_initl("crlf", "ident", "filter",
-					 "eol", "text", NULL);
+					 "eol", "text", "encoding", NULL);
 		user_convert_tail = &user_convert;
+		encoding_tail = &encoding;
 		git_config(read_convert_config, NULL);
 	}
 
@@ -1055,6 +1227,7 @@ static void convert_attrs(struct conv_attrs *ca, const char *path)
 			else if (eol_attr == EOL_CRLF)
 				ca->crlf_action = CRLF_TEXT_CRLF;
 		}
+		ca->encoding = git_path_check_encoding(ccheck + 5);
 	} else {
 		ca->drv = NULL;
 		ca->crlf_action = CRLF_UNDEFINED;
@@ -1135,6 +1308,13 @@ int convert_to_git(const struct index_state *istate,
 		src = dst->buf;
 		len = dst->len;
 	}
+
+	ret |= encode_to_git(path, src, len, dst, ca.encoding);
+	if (ret && dst) {
+		src = dst->buf;
+		len = dst->len;
+	}
+
 	if (checksafe != SAFE_CRLF_KEEP_CRLF) {
 		ret |= crlf_to_git(istate, path, src, len, dst, ca.crlf_action, checksafe);
 		if (ret && dst) {
@@ -1158,6 +1338,7 @@ void convert_to_git_filter_fd(const struct index_state *istate,
 	if (!apply_filter(path, NULL, 0, fd, dst, ca.drv, CAP_CLEAN, NULL))
 		die("%s: clean filter '%s' failed", path, ca.drv->name);
 
+	encode_to_git(path, dst->buf, dst->len, dst, ca.encoding);
 	crlf_to_git(istate, path, dst->buf, dst->len, dst, ca.crlf_action, checksafe);
 	ident_to_git(path, dst->buf, dst->len, dst, ca.ident);
 }
@@ -1187,6 +1368,12 @@ static int convert_to_working_tree_internal(const char *path, const char *src,
 			src = dst->buf;
 			len = dst->len;
 		}
+	}
+
+	ret |= encode_to_worktree(path, src, len, dst, ca.encoding);
+	if (ret) {
+		src = dst->buf;
+		len = dst->len;
 	}
 
 	ret_filter = apply_filter(
@@ -1653,6 +1840,9 @@ struct stream_filter *get_stream_filter(const char *path, const unsigned char *s
 
 	convert_attrs(&ca, path);
 	if (ca.drv && (ca.drv->process || ca.drv->smudge || ca.drv->clean))
+		return NULL;
+
+	if (ca.encoding)
 		return NULL;
 
 	if (ca.crlf_action == CRLF_AUTO || ca.crlf_action == CRLF_AUTO_CRLF)

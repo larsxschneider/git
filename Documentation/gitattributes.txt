@@ -146,6 +146,33 @@ Unspecified::
 Any other value causes Git to act as if `text` has been left
 unspecified.
 
+`encoding`
+^^^^^^^^^^
+
+By default Git assumes UTF-8 encoding for text files.  The `encoding`
+attribute sets the encoding to be used in the working directory.
+If the path is added to the index, then Git encodes the content to
+UTF-8.  On checkout the content is encoded back to the original
+encoding.  Consequently, you can use all built-in Git text processing
+tools (e.g. git diff, line ending conversions, etc.) with your
+non-UTF-8 encoded file.
+
+Please note that re-encoding content can cause errors and requires
+resources. Use the `encoding` attribute only if you cannot store
+a file in UTF-8 encoding and if you want Git to be able to process
+the text.
+
+------------------------
+*.txt		text encoding=UTF-16
+------------------------
+
+All `iconv` encodings with a stable round-trip conversion to and from
+UTF-8 are supported.  You can see a full list with the following command:
+
+------------------------
+iconv --list
+------------------------
+
 `eol`
 ^^^^^
 
