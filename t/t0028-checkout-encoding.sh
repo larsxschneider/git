@@ -4,6 +4,8 @@ test_description='checkout-encoding conversion via gitattributes'
 
 . ./test-lib.sh
 
+GIT_TRACE_CHECKOUT_ENCODING=1 && export GIT_TRACE_CHECKOUT_ENCODING
+
 test_expect_success 'setup test repo' '
 
 	text="hallo there!\ncan you read me?" &&
