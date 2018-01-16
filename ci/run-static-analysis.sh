@@ -5,6 +5,16 @@
 
 . ${0%/*}/lib-travisci.sh
 
-make coccicheck
+docker pull philmd/coccinelle:latest
+
+docker run \
+    --interactive \
+    --volume "${PWD}:/usr/src/git" \
+    --workdir /usr/src/git
+    philmd/coccinelle:latest \
+   make coccicheck
+
+check_unignored_build_artifacts
 
 save_good_tree
+

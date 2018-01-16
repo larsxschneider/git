@@ -25,9 +25,8 @@ matrix:
       os: linux
       compiler:
       addons:
-        apt:
-          packages:
-          - coccinelle
+      services:
+        - docker
       before_install:
       before_script:
       script: ci/run-static-analysis.sh
