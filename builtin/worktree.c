@@ -345,9 +345,13 @@ done:
 	 * Hook failure does not warrant worktree deletion, so run hook after
 	 * is_junk is cleared, but do return appropriate code when hook fails.
 	 */
-	if (!ret && opts->checkout)
-		ret = run_hook_le(NULL, "post-checkout", oid_to_hex(&null_oid),
+	if (!ret && opts->checkout) {
+		struct argv_array env = ARGV_ARRAY_INIT;
+		argv_array_pushf(&env, "GIT_WORK_TREE=%s", absolute_path(path));
+		ret = run_hook_le(env.argv, "post-checkout", oid_to_hex(&null_oid),
 				  oid_to_hex(&commit->object.oid), "1", NULL);
+		argv_array_clear(&env);
+	}
 
 	argv_array_clear(&child_env);
 	strbuf_release(&sb);

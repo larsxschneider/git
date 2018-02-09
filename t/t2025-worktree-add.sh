@@ -455,19 +455,26 @@ post_checkout_hook () {
 	mkdir -p .git/hooks &&
 	write_script .git/hooks/post-checkout <<-\EOF
 	echo $* >hook.actual
+	git rev-parse --show-toplevel >>hook.actual
 	EOF
 }
 
 test_expect_success '"add" invokes post-checkout hook (branch)' '
 	post_checkout_hook &&
-	printf "%s %s 1\n" $_z40 $(git rev-parse HEAD) >hook.expect &&
+	cat >hook.expect <<-EOF &&
+		$_z40 $(git rev-parse HEAD) 1
+		$(pwd)/gumby
+	EOF
 	git worktree add gumby &&
 	test_cmp hook.expect hook.actual
 '
 
 test_expect_success '"add" invokes post-checkout hook (detached)' '
 	post_checkout_hook &&
-	printf "%s %s 1\n" $_z40 $(git rev-parse HEAD) >hook.expect &&
+	cat >hook.expect <<-EOF &&
+		$_z40 $(git rev-parse HEAD) 1
+		$(pwd)/grumpy
+	EOF
 	git worktree add --detach grumpy &&
 	test_cmp hook.expect hook.actual
 '
