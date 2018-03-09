@@ -279,12 +279,20 @@ static int validate_encoding(const char *path, const char *enc,
 				"BOM is prohibited in '%s' if encoded as %s");
 			/*
 			 * This advice is shown for UTF-??BE and UTF-??LE encodings.
+			 * We cut off the last two characters of the encoding name
+			 # to generate the encoding name suitable for BOMs.
 			 */
 			const char *advise_msg = _(
 				"The file '%s' contains a byte order "
-				"mark (BOM). Please use %.6s as "
+				"mark (BOM). Please use UTF-%s as "
 				"working-tree-encoding.");
-			advise(advise_msg, path, enc);
+			const char *stripped = "";
+			char *upper = xstrdup_toupper(enc);
+			upper[strlen(upper)-2] = '\0';
+			if (!skip_prefix(upper, "UTF-", &stripped))
+				skip_prefix(stripped, "UTF", &stripped);
+			advise(advise_msg, path, stripped);
+			free(upper);
 			if (die_on_error)
 				die(error_msg, path, enc);
 			else {
@@ -296,10 +304,15 @@ static int validate_encoding(const char *path, const char *enc,
 				"BOM is required in '%s' if encoded as %s");
 			const char *advise_msg = _(
 				"The file '%s' is missing a byte order "
-				"mark (BOM). Please use %sBE or %sLE "
+				"mark (BOM). Please use UTF-%sBE or UTF-%sLE "
 				"(depending on the byte order) as "
 				"working-tree-encoding.");
-			advise(advise_msg, path, enc, enc);
+			const char *stripped = "";
+			char *upper = xstrdup_toupper(enc);
+			if (!skip_prefix(upper, "UTF-", &stripped))
+				skip_prefix(stripped, "UTF", &stripped);
+			advise(advise_msg, path, stripped, stripped);
+			free(upper);
 			if (die_on_error)
 				die(error_msg, path, enc);
 			else {

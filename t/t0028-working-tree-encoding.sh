@@ -74,18 +74,22 @@ do
 		cp bebom.utf${i}be.raw bebom.utf${i}be &&
 		test_must_fail git add bebom.utf${i}be 2>err.out &&
 		test_i18ngrep "fatal: BOM is prohibited .* utf-${i}be" err.out &&
+		test_i18ngrep "use UTF-${i} as working-tree-encoding" err.out &&
 
 		cp lebom.utf${i}le.raw lebom.utf${i}be &&
 		test_must_fail git add lebom.utf${i}be 2>err.out &&
 		test_i18ngrep "fatal: BOM is prohibited .* utf-${i}be" err.out &&
+		test_i18ngrep "use UTF-${i} as working-tree-encoding" err.out &&
 
 		cp bebom.utf${i}be.raw bebom.utf${i}le &&
 		test_must_fail git add bebom.utf${i}le 2>err.out &&
 		test_i18ngrep "fatal: BOM is prohibited .* utf-${i}LE" err.out &&
+		test_i18ngrep "use UTF-${i} as working-tree-encoding" err.out &&
 
 		cp lebom.utf${i}le.raw lebom.utf${i}le &&
 		test_must_fail git add lebom.utf${i}le 2>err.out &&
-		test_i18ngrep "fatal: BOM is prohibited .* utf-${i}LE" err.out
+		test_i18ngrep "fatal: BOM is prohibited .* utf-${i}LE" err.out &&
+		test_i18ngrep "use UTF-${i} as working-tree-encoding" err.out
 	'
 
 	test_expect_success "check required UTF-${i} BOM" '
@@ -96,10 +100,12 @@ do
 		cp nobom.utf${i}be.raw nobom.utf${i} &&
 		test_must_fail git add nobom.utf${i} 2>err.out &&
 		test_i18ngrep "fatal: BOM is required .* utf-${i}" err.out &&
+		test_i18ngrep "use UTF-${i}BE or UTF-${i}LE" err.out &&
 
 		cp nobom.utf${i}le.raw nobom.utf${i} &&
 		test_must_fail git add nobom.utf${i} 2>err.out &&
-		test_i18ngrep "fatal: BOM is required .* utf-${i}" err.out
+		test_i18ngrep "fatal: BOM is required .* utf-${i}" err.out &&
+		test_i18ngrep "use UTF-${i}BE or UTF-${i}LE" err.out
 	'
 
 	test_expect_success "eol conversion for UTF-${i} encoded files on checkout" '
