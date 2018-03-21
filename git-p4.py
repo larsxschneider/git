@@ -2878,6 +2878,8 @@ class P4Sync(Command, P4UserMap):
                 filesToImport = []
                 for f in files:
                     if 'binary' in f['type'] and f['action'] not in self.delete_actions:
+                        if gitConfigBool('git-p4.ignoreBinaryFiles'):
+                            continue
                         if not hasattr(self, 'completeInfo'):
                             self.fileInfoCache = {}
                         if f['path'] in self.fileInfoCache:
