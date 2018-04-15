@@ -354,6 +354,28 @@ static int crlf_to_git(const struct index_state *istate,
 	return 1;
 }
 
+
+int remove_crlf(struct strbuf *buf)
+{
+	struct text_stat stats;
+	gather_stats(buf->buf, buf->len, &stats);
+
+	if (stats.crlf || stats.lonelf) {
+		char *src = buf->buf;
+		char *dst = buf->buf;
+		size_t len = buf->len;
+		do {
+			unsigned char c = *src++;
+			if (! (c == '\r' && (1 < len && *src == '\n')))
+				*dst++ = c;
+		} while (--len);
+		strbuf_setlen(buf, dst - buf->buf);
+	}
+
+	return 0;
+}
+
+
 static int crlf_to_worktree(const char *path, const char *src, size_t len,
 			    struct strbuf *buf, enum crlf_action crlf_action)
 {

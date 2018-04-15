@@ -63,6 +63,9 @@ extern const char *get_cached_convert_stats_ascii(const struct index_state *ista
 extern const char *get_wt_convert_stats_ascii(const char *path);
 extern const char *get_convert_attr_ascii(const char *path);
 
+
+extern int remove_crlf(struct strbuf *buf);
+
 /* returns 1 if *dst was used */
 extern int convert_to_git(const struct index_state *istate,
 			  const char *path, const char *src, size_t len,

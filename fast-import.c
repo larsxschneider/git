@@ -168,6 +168,7 @@ Format of STDIN stream:
 #include "dir.h"
 #include "run-command.h"
 #include "packfile.h"
+#include "convert.h"
 
 #define PACK_ID_BITS 16
 #define MAX_PACK_ID ((1<<PACK_ID_BITS)-1)
@@ -2046,6 +2047,8 @@ static int parse_data(struct strbuf *sb, uintmax_t limit, uintmax_t *len_res)
 			n += s;
 		}
 	}
+
+	remove_crlf(sb);
 
 	skip_optional_lf();
 	return 1;
