@@ -138,6 +138,7 @@ static int ssl_cert_password_required;
 #ifdef LIBCURL_CAN_HANDLE_AUTH_ANY
 static unsigned long http_auth_methods = CURLAUTH_ANY;
 static int http_auth_methods_restricted;
+static int keep_rejected_credentials = 0;
 /* Modes for which empty_auth cannot actually help us. */
 static unsigned long empty_auth_useless =
 	CURLAUTH_BASIC
@@ -400,6 +401,11 @@ static int http_options(const char *var, const char *value, void *cb)
 			http_follow_config = HTTP_FOLLOW_ALWAYS;
 		else
 			http_follow_config = HTTP_FOLLOW_NONE;
+		return 0;
+	}
+
+	if (!strcmp("http.keeprejectedcredentials", var)) {
+		keep_rejected_credentials = git_config_bool(var, value);
 		return 0;
 	}
 
@@ -1471,7 +1477,8 @@ static int handle_curl_result(struct slot_results *results)
 		return HTTP_MISSING_TARGET;
 	else if (results->http_code == 401) {
 		if (http_auth.username && http_auth.password) {
-			credential_reject(&http_auth);
+			if (!keep_rejected_credentials)
+				credential_reject(&http_auth);
 			return HTTP_NOAUTH;
 		} else {
 #ifdef LIBCURL_CAN_HANDLE_AUTH_ANY
@@ -1485,7 +1492,8 @@ static int handle_curl_result(struct slot_results *results)
 		}
 	} else {
 		if (results->http_connectcode == 407)
-			credential_reject(&proxy_auth);
+			if (!keep_rejected_credentials)
+				credential_reject(&proxy_auth);
 #if LIBCURL_VERSION_NUM >= 0x070c00
 		if (!curl_errorstr[0])
 			strlcpy(curl_errorstr,

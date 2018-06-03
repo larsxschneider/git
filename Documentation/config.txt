@@ -1997,6 +1997,12 @@ http.emptyAuth::
 	a username in the URL, as libcurl normally requires a username for
 	authentication.
 
+http.keepRejectedCredentials::
+	Keep credentials in the credential helper that a Git server responded
+	to with 401 (unauthorized) or 407 (proxy authentication required).
+	This can be useful in automation environments where credentials might
+	become temporarily invalid. The default is `false`.
+
 http.delegation::
 	Control GSSAPI credential delegation. The delegation is disabled
 	by default in libcurl since version 7.21.7. Set parameter to tell
