@@ -1444,6 +1444,11 @@ char *get_remote_object_url(const char *url, const char *hex,
 	return strbuf_detach(&buf, NULL);
 }
 
+static const char reject_credentials_advice[] =
+N_("Git has stored invalid credentials.\n"
+"Reject them with 'git credential reject' or\n"
+"disable the Git config 'http.keepRejectedCredentials'.");
+
 static int handle_curl_result(struct slot_results *results)
 {
 	/*
@@ -1477,7 +1482,9 @@ static int handle_curl_result(struct slot_results *results)
 		return HTTP_MISSING_TARGET;
 	else if (results->http_code == 401) {
 		if (http_auth.username && http_auth.password) {
-			if (!keep_rejected_credentials)
+			if (keep_rejected_credentials)
+				advise(_(reject_credentials_advice));
+			else
 				credential_reject(&http_auth);
 			return HTTP_NOAUTH;
 		} else {
@@ -1492,7 +1499,9 @@ static int handle_curl_result(struct slot_results *results)
 		}
 	} else {
 		if (results->http_connectcode == 407)
-			if (!keep_rejected_credentials)
+			if (keep_rejected_credentials)
+				advise(_(reject_credentials_advice));
+			else
 				credential_reject(&proxy_auth);
 #if LIBCURL_VERSION_NUM >= 0x070c00
 		if (!curl_errorstr[0])
