@@ -242,4 +242,32 @@ test_expect_success 'check roundtrip encoding' '
 	git reset
 '
 
+test_expect_success 'encoding alias' '
+	test_when_finished "rm -f test.foo16.git test.foo8" &&
+	test_when_finished "git reset --hard HEAD" &&
+
+	test_config encoding.UTF-16.InsteadOf foo16 &&
+
+	text="hallo there!\ncan you read me with an alias?" &&
+	printf "$text" >test.foo8 &&
+	printf "$text" | iconv -f UTF-8 -t UTF-16 >test.foo16 &&
+
+	echo "*.foo16 text working-tree-encoding=fOO16" >.gitattributes &&
+	git add test.foo16 .gitattributes &&
+
+	git cat-file -p :test.foo16 >test.foo16.git &&
+	test_cmp_bin test.foo8 test.foo16.git
+'
+
+test_expect_success 'encoding alias overwrites existing encoding' '
+	test_when_finished "git reset --hard HEAD" &&
+
+	test_config encoding.CONFUSE.insteadOf UTF-16 &&
+
+	echo "*.garbage text working-tree-encoding=UTF-16" >.gitattributes &&
+	printf "garbage" >t.garbage &&
+	test_must_fail git add t.garbage 2>err.out &&
+	test_i18ngrep "failed to encode .* from CONFUSE to UTF-8" err.out
+'
+
 test_done

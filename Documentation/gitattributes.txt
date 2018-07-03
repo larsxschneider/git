@@ -366,6 +366,25 @@ command to guess the encoding:
 file foo.ps1
 ------------------------
 
+The encoding in all examples above was directly defined in the Git
+attributes. In addition, it is possible to define encodings indirectly
+using aliases set via Git config:
+
+------------------------
+[encoding "UTF-16"]
+    insteadOf = my-custom-alias
+------------------------
+
+The alias name can be used in the Git attributes instead of the actual
+encoding name:
+
+------------------------
+*.ps1   text working-tree-encoding=my-custom-alias
+------------------------
+
+This mapping can be useful if equivalent encodings are spelled
+differently across platforms. It can also be useful if a user wants to
+use different encodings on different platforms for the same file.
 
 `ident`
 ^^^^^^^

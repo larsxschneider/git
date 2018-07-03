@@ -997,6 +997,15 @@ static int apply_filter(const char *path, const char *src, size_t len,
 	return 0;
 }
 
+struct alias2enc {
+	struct hashmap_entry ent; /* must be the first member! */
+	const char *alias;
+	const char *encoding;
+};
+
+static int encoding_aliases_initialized;
+static struct hashmap encoding_map;
+
 static int read_convert_config(const char *var, const char *value, void *cb)
 {
 	const char *key, *name;
@@ -1039,6 +1048,36 @@ static int read_convert_config(const char *var, const char *value, void *cb)
 		if (!strcmp("required", key)) {
 			drv->required = git_config_bool(var, value);
 			return 0;
+		}
+	} else if (
+		parse_config_key(var, "encoding", &name, &namelen, &key) >= 0 &&
+		name &&	!strcmp(key, "insteadof")) {
+		/*
+		 * Encoding aliases are configured using
+		 * "encoding.<iconv-name>.insteadOf = <alias-name>".
+		 */
+		struct alias2enc *entry;
+		if (!value)
+			return config_error_nonbool(key);
+
+		if (!encoding_aliases_initialized) {
+			encoding_aliases_initialized = 1;
+			hashmap_init(&encoding_map, NULL, NULL, 0);
+			entry = NULL;
+		} else {
+			struct alias2enc hashkey;
+			hashmap_entry_init(&hashkey, strihash(value));
+			hashkey.alias = value;
+			entry = hashmap_get(&encoding_map, &hashkey, NULL);
+		}
+
+		if (!entry) {
+			entry = xmalloc(sizeof(*entry));
+			entry->encoding = xstrndup(name, namelen);
+			entry->alias = xstrdup(value);
+
+			hashmap_entry_init(entry, strihash(value));
+			hashmap_add(&encoding_map, entry);
 		}
 	}
 
@@ -1223,6 +1262,17 @@ static const char *git_path_check_encoding(struct attr_check_item *check)
 
 	if (ATTR_TRUE(value) || ATTR_FALSE(value)) {
 		die(_("true/false are no valid working-tree-encodings"));
+	}
+
+	/* Check if an alias was defined for the encoding in the Git config */
+	if (encoding_aliases_initialized) {
+		struct alias2enc hashkey;
+		struct alias2enc *entry;
+		hashmap_entry_init(&hashkey, strihash(value));
+		hashkey.alias = value;
+		entry = hashmap_get(&encoding_map, &hashkey, NULL);
+		if (entry)
+			value = entry->encoding;
 	}
 
 	/* Don't encode to the default encoding */
