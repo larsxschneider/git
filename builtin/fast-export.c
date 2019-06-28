@@ -404,8 +404,11 @@ static void show_filemodify(struct diff_queue_struct *q,
 	 */
 	QSORT(q->queue, q->nr, depth_first);
 
+	/*
+	 * Always handle deletes first.
+	 * Mhhh... sorting depth-first seems to not be necessary (all tests pass)
+	 */
 	for (i = 0; i < q->nr; i++) {
-		struct diff_filespec *ospec = q->queue[i]->one;
 		struct diff_filespec *spec = q->queue[i]->two;
 
 		switch (q->queue[i]->status) {
@@ -414,6 +417,16 @@ static void show_filemodify(struct diff_queue_struct *q,
 			print_path(spec->path);
 			string_list_insert(changed, spec->path);
 			putchar('\n');
+			break;
+		}
+	}
+
+	for (i = 0; i < q->nr; i++) {
+		struct diff_filespec *ospec = q->queue[i]->one;
+		struct diff_filespec *spec = q->queue[i]->two;
+
+		switch (q->queue[i]->status) {
+		case DIFF_STATUS_DELETED:
 			break;
 
 		case DIFF_STATUS_COPIED:

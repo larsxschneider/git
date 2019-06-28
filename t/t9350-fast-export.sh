@@ -690,4 +690,30 @@ test_expect_success 'merge commit gets exported with --import-marks' '
 	)
 '
 
+test_expect_success 'when transforming a symlink to a directory' '
+	test_create_repo src &&
+
+   	mkdir src/foo &&
+	echo a_line >src/foo/file.txt &&
+	git -C src add foo/file.txt &&
+	git -C src commit -m 1st_commit &&
+
+	ln -s src/foo src/bar &&
+	git -C src add bar &&
+	git -C src commit -m 2nd_commit &&
+
+	rm src/bar &&
+   	mkdir src/bar &&
+   	echo b_line >src/bar/b_file.txt &&
+	git -C src add . &&
+	git -C src commit -m 3rd_commit &&
+
+	test_create_repo dst &&
+	git -C src fast-export --all &&
+	git -C src fast-export --all | git -C dst fast-import &&
+	git -C src show >expected &&
+	git -C dst show >actual &&
+	test_cmp expected actual
+'
+
 test_done
