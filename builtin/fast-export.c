@@ -313,36 +313,6 @@ static void export_blob(const struct object_id *oid)
 		free(buf);
 }
 
-static int depth_first(const void *a_, const void *b_)
-{
-	const struct diff_filepair *a = *((const struct diff_filepair **)a_);
-	const struct diff_filepair *b = *((const struct diff_filepair **)b_);
-	const char *name_a, *name_b;
-	int len_a, len_b, len;
-	int cmp;
-
-	name_a = a->one ? a->one->path : a->two->path;
-	name_b = b->one ? b->one->path : b->two->path;
-
-	len_a = strlen(name_a);
-	len_b = strlen(name_b);
-	len = (len_a < len_b) ? len_a : len_b;
-
-	/* strcmp will sort 'd' before 'd/e', we want 'd/e' before 'd' */
-	cmp = memcmp(name_a, name_b, len);
-	if (cmp)
-		return cmp;
-	cmp = len_b - len_a;
-	if (cmp)
-		return cmp;
-	/*
-	 * Move 'R'ename entries last so that all references of the file
-	 * appear in the output before it is renamed (e.g., when a file
-	 * was copied and renamed in the same commit).
-	 */
-	return (a->status == 'R') - (b->status == 'R');
-}
-
 static void print_path_1(const char *path)
 {
 	int need_quote = quote_c_style(path, NULL, NULL, 0);
@@ -398,17 +368,8 @@ static void show_filemodify(struct diff_queue_struct *q,
 	int i;
 	struct string_list *changed = data;
 
-	/*
-	 * Handle files below a directory first, in case they are all deleted
-	 * and the directory changes to a file or symlink.
-	 */
-	QSORT(q->queue, q->nr, depth_first);
-
-	/*
-	 * Always handle deletes first.
-	 * Mhhh... sorting depth-first seems to not be necessary (all tests pass)
-	 */
 	for (i = 0; i < q->nr; i++) {
+		struct diff_filespec *ospec = q->queue[i]->one;
 		struct diff_filespec *spec = q->queue[i]->two;
 
 		switch (q->queue[i]->status) {
@@ -417,16 +378,6 @@ static void show_filemodify(struct diff_queue_struct *q,
 			print_path(spec->path);
 			string_list_insert(changed, spec->path);
 			putchar('\n');
-			break;
-		}
-	}
-
-	for (i = 0; i < q->nr; i++) {
-		struct diff_filespec *ospec = q->queue[i]->one;
-		struct diff_filespec *spec = q->queue[i]->two;
-
-		switch (q->queue[i]->status) {
-		case DIFF_STATUS_DELETED:
 			break;
 
 		case DIFF_STATUS_COPIED:
